@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Journal">
+<meta name="theme-color" content="#1a1a2e">
+<title>✦ Journal</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --ink: #1a1a2e;
+    --ink-light: #3a2e20;
+    --gold: #c8a96e;
+    --gold-light: #e8d5b0;
+    --muted: #a89880;
+    --cream: #faf8f4;
+    --cream2: #f0ebe0;
+    --border: #e0d8cc;
+    --white: #ffffff;
+    --danger: #c04040;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html, body {
+    height: 100%; overflow: hidden;
+    font-family: Georgia, 'Times New Roman', serif;
+    background: var(--ink);
+  }
+
+  /* ─── LOCK SCREEN ─── */
+  #lock-screen {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--ink);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1.5rem;
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .lock-logo {
+    font-size: 13px; letter-spacing: 4px; color: var(--gold-light);
+    margin-bottom: 0.5rem; text-transform: uppercase;
+  }
+
+  .lock-subtitle {
+    font-size: 11px; letter-spacing: 1.5px; color: var(--muted);
+    font-family: -apple-system, sans-serif;
+  }
+
+  .pin-dots {
+    display: flex; gap: 16px; margin: 0.25rem 0;
+  }
+
+  .pin-dot {
+    width: 13px; height: 13px; border-radius: 50%;
+    border: 1.5px solid #4a4a6a; background: transparent;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .pin-dot.filled { background: var(--gold-light); border-color: var(--gold-light); }
+
+  .numpad {
+    display: grid; grid-template-columns: repeat(3, 72px); gap: 14px;
+    margin-top: 0.5rem;
+  }
+
+  .numpad button {
+    width: 72px; height: 72px; border-radius: 50%;
+    border: 1px solid #2e2e50;
+    background: #252545;
+    color: var(--gold-light);
+    font-size: 22px;
+    font-family: Georgia, serif;
+    cursor: pointer;
+    transition: background 0.12s, transform 0.08s;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .numpad button:active { background: #3a3a68; transform: scale(0.93); }
+  .numpad button.del { font-size: 18px; color: var(--muted); }
+  .numpad button.empty { visibility: hidden; }
+
+  #pin-error {
+    color: #e07070; font-size: 12px; letter-spacing: 1px;
+    font-family: -apple-system, sans-serif;
+    min-height: 18px; text-align: center;
+  }
+
+  #pin-hint {
+    color: #5a6a52; font-size: 11px; letter-spacing: 0.5px;
+    font-family: -apple-system, sans-serif;
+    text-align: center; max-width: 220px; line-height: 1.6;
+  }
+
+  /* ─── MAIN APP ─── */
+  #app {
+    display: none; flex-direction: column;
+    height: 100vh; overflow: hidden;
+    background: var(--cream);
+  }
+
+  /* Header */
+  .app-header {
+    background: var(--ink);
+    padding: calc(var(--safe-top) + 12px) 16px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .app-title {
+    font-size: 17px; font-weight: 400; letter-spacing: 3px; color: var(--gold-light);
+  }
+
+  .header-actions { display: flex; gap: 6px; }
+
+  .icon-btn {
+    width: 36px; height: 36px; background: none; border: none;
+    color: var(--muted); font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; transition: background 0.15s, color 0.15s;
+  }
+
+  .icon-btn:active { background: #2e2e50; color: var(--gold-light); }
+
+  /* Tabs */
+  .tabs {
+    display: flex; background: var(--ink); flex-shrink: 0;
+    border-top: 1px solid #2a2a48;
+  }
+
+  .tab {
+    flex: 1; padding: 10px 8px; text-align: center;
+    font-size: 10px; letter-spacing: 1.5px; color: #5a5a7a;
+    cursor: pointer; border-bottom: 2px solid transparent;
+    transition: all 0.2s; font-family: -apple-system, sans-serif;
+    text-transform: uppercase;
+  }
+
+  .tab.active { color: var(--gold-light); border-bottom-color: var(--gold); }
+
+  /* Scrollable content area */
+  .scroll-area {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+
+  /* ─── CALENDAR ─── */
+  .calendar-section { padding: 16px; }
+
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .cal-month-label {
+    font-size: 16px; color: var(--ink-light); letter-spacing: 1px;
+  }
+
+  .cal-nav {
+    width: 36px; height: 36px; background: none; border: 0.5px solid var(--border);
+    border-radius: 50%; color: var(--muted); font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+
+  .cal-nav:active { background: var(--cream2); }
+
+  .cal-dow {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 6px;
+  }
+
+  .cal-dow span {
+    text-align: center; font-size: 10px; color: var(--muted);
+    letter-spacing: 0.5px; padding: 4px 0;
+    font-family: -apple-system, sans-serif;
+  }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+
+  .cal-cell {
+    aspect-ratio: 1; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; font-size: 13px; color: var(--ink-light);
+    position: relative; transition: background 0.15s;
+    font-family: -apple-system, sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+
+  .cal-cell:active { background: var(--cream2); }
+  .cal-cell.other-month { color: #c8bfb0; }
+  .cal-cell.today { background: var(--ink); color: var(--gold-light); }
+  .cal-cell.selected { background: var(--gold); color: white; }
+  .cal-cell.today.selected { background: var(--gold); }
+
+  .entry-dot {
+    position: absolute; bottom: 5px; left: 50%;
+    transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: var(--gold);
+  }
+
+  .cal-cell.today .entry-dot { background: var(--gold-light); }
+  .cal-cell.selected .entry-dot { background: white; }
+
+  /* ─── ENTRY CARDS ─── */
+  .entries-section { padding: 0 14px 80px; }
+
+  .date-label {
+    font-size: 10px; letter-spacing: 1.5px; color: var(--muted);
+    text-transform: uppercase; margin: 14px 0 8px;
+    font-family: -apple-system, sans-serif;
+  }
+
+  .entry-card {
+    background: var(--white); border-radius: 10px;
+    border: 0.5px solid var(--border); padding: 12px 14px;
+    margin-bottom: 8px; cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    -webkit-user-select: none; user-select: none;
+  }
+
+  .entry-card:active { border-color: var(--gold); transform: scale(0.99); }
+
+  .entry-time {
+    font-size: 10px; color: var(--muted); margin-bottom: 4px;
+    font-family: -apple-system, sans-serif; letter-spacing: 0.5px;
+  }
+
+  .entry-title-preview {
+    font-size: 14px; color: var(--ink-light); line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .empty-state {
+    text-align: center; padding: 40px 20px; color: var(--muted);
+    font-size: 13px; line-height: 1.8; font-family: -apple-system, sans-serif;
+  }
+
+  .add-entry-btn {
+    background: var(--ink); color: var(--gold-light);
+    border: none; border-radius: 8px; padding: 10px 20px;
+    font-size: 12px; letter-spacing: 0.5px; cursor: pointer;
+    margin-top: 12px; font-family: -apple-system, sans-serif;
+    transition: background 0.15s;
+  }
+
+  .add-entry-btn:active { background: #2a2a4e; }
+
+  .add-more-btn {
+    background: none; border: 0.5px solid var(--gold);
+    border-radius: 8px; padding: 9px 18px; font-size: 12px;
+    color: var(--muted); cursor: pointer; letter-spacing: 0.5px;
+    margin-top: 4px; font-family: -apple-system, sans-serif;
+    transition: background 0.15s;
+  }
+
+  .add-more-btn:active { background: var(--cream2); }
+
+  /* ─── EDITOR ─── */
+  #editor-view {
+    display: none; flex-direction: column;
+    height: 100vh; background: var(--cream);
+  }
+
+  .editor-header {
+    background: var(--ink);
+    padding: calc(var(--safe-top) + 10px) 14px 12px;
+    display: flex; align-items: flex-start; gap: 10px; flex-shrink: 0;
+  }
+
+  .back-btn {
+    background: none; border: none; color: var(--muted);
+    font-size: 22px; cursor: pointer; padding: 2px 4px;
+    margin-top: 1px; flex-shrink: 0;
+    transition: color 0.15s;
+  }
+
+  .back-btn:active { color: var(--gold-light); }
+
+  .editor-meta { flex: 1; min-width: 0; }
+
+  .editor-date-label {
+    font-size: 10px; color: #5a5a7a; letter-spacing: 1px;
+    font-family: -apple-system, sans-serif; margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .editor-title-input {
+    width: 100%; background: none; border: none; outline: none;
+    font-size: 18px; font-family: Georgia, serif; color: var(--gold-light);
+    letter-spacing: 0.5px;
+  }
+
+  .editor-title-input::placeholder { color: #4a4a6a; }
+
+  .editor-body-wrap {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column;
+    background: var(--cream);
+  }
+
+  .editor-actions {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: var(--white);
+    border-bottom: 0.5px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .editor-textarea {
+    width: 100%; flex: 1; min-height: 300px;
+    background: none; border: none; outline: none;
+    font-size: 16px; font-family: Georgia, serif;
+    color: var(--ink-light); line-height: 1.9; resize: none;
+    padding: 16px;
+  }
+
+  .editor-textarea::placeholder { color: #c0b8a8; }
+
+  .editor-toolbar {
+    display: none;
+  }
+
+  .tool-btn {
+    background: none; border: 0.5px solid var(--border); border-radius: 8px;
+    padding: 8px 14px; font-size: 12px; color: var(--muted);
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    letter-spacing: 0.5px; transition: all 0.15s;
+    font-family: -apple-system, sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+
+  .tool-btn:active { background: var(--cream2); border-color: var(--gold); }
+  .tool-btn.recording { background: #fff0f0; border-color: #e07070; color: var(--danger); }
+
+  .del-btn { color: #d06060; border-color: #f0d0d0; }
+
+  .save-btn {
+    margin-left: auto; background: var(--ink); border: none;
+    border-radius: 8px; padding: 9px 18px;
+    font-size: 12px; color: var(--gold-light);
+    cursor: pointer; letter-spacing: 0.5px;
+    font-family: -apple-system, sans-serif;
+    transition: background 0.15s;
+    -webkit-user-select: none; user-select: none;
+  }
+
+  .save-btn:active { background: #2a2a4e; }
+
+  /* Voice wave animation */
+  .voice-wave { display: none; align-items: center; gap: 2px; }
+  .voice-wave.on { display: flex; }
+  .wb { width: 3px; border-radius: 2px; background: var(--danger); animation: vw 0.7s ease-in-out infinite; }
+  .wb:nth-child(2) { animation-delay: 0.1s; }
+  .wb:nth-child(3) { animation-delay: 0.2s; }
+  .wb:nth-child(4) { animation-delay: 0.3s; }
+  @keyframes vw { 0%,100%{height:5px} 50%{height:15px} }
+
+  /* ─── PIN CHANGE MODAL ─── */
+  #pin-modal {
+    display: none; position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,0.65);
+    align-items: flex-end; justify-content: center;
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .pin-modal-sheet {
+    background: var(--ink); border-radius: 20px 20px 0 0;
+    padding: 24px 20px 20px;
+    width: 100%; max-width: 420px;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+
+  .pin-modal-sheet h3 { color: var(--gold-light); font-size: 17px; font-weight: 400; letter-spacing: 1.5px; }
+  .pin-modal-hint { color: var(--muted); font-size: 12px; letter-spacing: 0.5px; font-family: -apple-system, sans-serif; }
+  #modal-error { color: #e07070; font-size: 12px; min-height: 16px; font-family: -apple-system, sans-serif; }
+
+  .modal-actions { display: flex; gap: 10px; width: 100%; margin-top: 4px; }
+  .modal-cancel {
+    flex: 1; padding: 12px; background: none; border: 1px solid #3a3a5c;
+    border-radius: 10px; color: var(--muted); font-size: 14px; cursor: pointer;
+    font-family: -apple-system, sans-serif;
+  }
+  .modal-confirm {
+    flex: 1; padding: 12px; background: var(--gold); border: none;
+    border-radius: 10px; color: var(--ink); font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: -apple-system, sans-serif;
+  }
+  .modal-cancel:active { background: #2a2a4e; }
+  .modal-confirm:active { opacity: 0.85; }
+</style>
+</head>
+<body>
+
+<!-- Lock Screen -->
+<div id="lock-screen">
+  <p class="lock-logo">✦ &nbsp; J O U R N A L</p>
+  <p class="lock-subtitle" id="lock-subtitle">ENTER PIN</p>
+  <div class="pin-dots" id="pin-dots"></div>
+  <p id="pin-error"></p>
+  <div class="numpad" id="numpad"></div>
+  <p id="pin-hint"></p>
+</div>
+
+<!-- PIN Change Modal -->
+<div id="pin-modal" style="display:none">
+  <div class="pin-modal-sheet">
+    <h3>Change PIN</h3>
+    <p class="pin-modal-hint" id="modal-hint">Enter your new 4-digit PIN</p>
+    <div class="pin-dots" id="modal-pin-dots"></div>
+    <p id="modal-error"></p>
+    <div class="numpad" id="modal-numpad"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closePinModal()">Cancel</button>
+      <button class="modal-confirm" onclick="confirmNewPin()">Set PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <div class="app-header">
+    <span class="app-title">✦ JOURNAL</span>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="startNewEntry()" title="New entry" aria-label="New entry">✎</button>
+      <button class="icon-btn" onclick="openPinModal()" title="Settings" aria-label="Change PIN">⚙</button>
+      <button class="icon-btn" onclick="lockApp()" title="Lock" aria-label="Lock journal">⊠</button>
+    </div>
+  </div>
+
+  <div class="tabs" id="main-tabs">
+    <div class="tab active" id="tab-cal" onclick="switchTab('calendar')">CALENDAR</div>
+    <div class="tab" id="tab-all" onclick="switchTab('all')">ALL ENTRIES</div>
+  </div>
+
+  <div class="scroll-area" id="main-scroll">
+    <!-- Calendar Tab -->
+    <div id="view-calendar">
+      <div class="calendar-section">
+        <div class="cal-header">
+          <button class="cal-nav" onclick="shiftMonth(-1)" aria-label="Previous month">‹</button>
+          <span class="cal-month-label" id="cal-month-label"></span>
+          <button class="cal-nav" onclick="shiftMonth(1)" aria-label="Next month">›</button>
+        </div>
+        <div class="cal-dow">
+          <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+      <div class="entries-section" id="cal-entries"></div>
+    </div>
+
+    <!-- All Entries Tab -->
+    <div id="view-all" style="display:none">
+      <div class="entries-section" id="all-entries" style="padding-top:12px"></div>
+    </div>
+  </div>
+
+  <!-- Editor View (overlays app) -->
+  <div id="editor-view">
+    <div class="editor-header">
+      <button class="back-btn" onclick="closeEditor()" aria-label="Back">←</button>
+      <div class="editor-meta">
+        <div class="editor-date-label" id="editor-date-label"></div>
+        <input class="editor-title-input" id="editor-title" placeholder="Entry title…" autocomplete="off" autocorrect="on" />
+      </div>
+    </div>
+    <div class="editor-body-wrap">
+      <div class="editor-actions">
+        <button class="tool-btn" id="voice-btn" onclick="toggleVoice()" aria-label="Voice to text">
+          <span id="voice-icon">⏺</span>
+          <span id="voice-label">Voice</span>
+          <div class="voice-wave" id="voice-wave">
+            <div class="wb" style="height:5px"></div>
+            <div class="wb" style="height:10px"></div>
+            <div class="wb" style="height:7px"></div>
+            <div class="wb" style="height:13px"></div>
+          </div>
+        </button>
+        <button class="tool-btn del-btn" id="delete-btn" onclick="deleteCurrentEntry()" style="display:none" aria-label="Delete entry">✕ Delete</button>
+        <button class="save-btn" onclick="saveCurrentEntry()">Save →</button>
+      </div>
+      <textarea class="editor-textarea" id="editor-body" placeholder="Write your thoughts…" autocorrect="on" autocapitalize="sentences"></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+const STORAGE_KEY_ENTRIES = 'journal_entries_v1';
+const STORAGE_KEY_PIN     = 'journal_pin_v1';
+const DEFAULT_PIN         = '1234';
+
+let entries      = {};
+let storedPin    = DEFAULT_PIN;
+let pinBuffer    = '';
+let currentTab   = 'calendar';
+let calMonth     = new Date();
+let selectedDate = null;
+let editingId    = null;
+let recognition  = null;
+let recording    = false;
+
+// Modal PIN state
+let modalBuffer  = '';
+let modalStep    = 'first';  // 'first' | 'confirm'
+let modalFirst   = '';
+
+// ─── STORAGE ─────────────────────────────────────────────
+function loadAll() {
+  try { const p = localStorage.getItem(STORAGE_KEY_PIN); if (p) storedPin = p; } catch(e){}
+  try { const e = localStorage.getItem(STORAGE_KEY_ENTRIES); if (e) entries = JSON.parse(e); } catch(e){}
+}
+
+function persistEntries() {
+  try { localStorage.setItem(STORAGE_KEY_ENTRIES, JSON.stringify(entries)); } catch(e){}
+}
+
+function persistPin(pin) {
+  try { localStorage.setItem(STORAGE_KEY_PIN, pin); } catch(e){}
+}
+
+// ─── DATE HELPERS ─────────────────────────────────────────
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function toDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function todayKey() { return toDateKey(new Date()); }
+
+function parseDateKey(k) {
+  const [y,m,d] = k.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+
+function formatFull(k) {
+  const d = parseDateKey(k);
+  return d.toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString('en-CA', { hour:'2-digit', minute:'2-digit' });
+}
+
+// ─── LOCK SCREEN ─────────────────────────────────────────
+function renderPinDots(containerId, count) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const d = document.createElement('div');
+    d.className = 'pin-dot' + (i < count ? ' filled' : '');
+    c.appendChild(d);
+  }
+}
+
+function buildNumpad(containerId, handler) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = '';
+  [1,2,3,4,5,6,7,8,9,null,0,'⌫'].forEach(k => {
+    const btn = document.createElement('button');
+    if (k === null) { btn.className = 'empty'; c.appendChild(btn); return; }
+    btn.textContent = k;
+    if (k === '⌫') btn.classList.add('del');
+    btn.addEventListener('click', () => handler(String(k)));
+    c.appendChild(btn);
+  });
+}
+
+function initLock() {
+  pinBuffer = '';
+  const isDefault = (storedPin === DEFAULT_PIN);
+  document.getElementById('lock-subtitle').textContent = 'ENTER PIN';
+  document.getElementById('pin-hint').textContent = isDefault ? 'Default PIN is 1234\nChange it in Settings after unlocking' : '';
+  document.getElementById('pin-error').textContent = '';
+  renderPinDots('pin-dots', 0);
+  buildNumpad('numpad', handleLockKey);
+}
+
+function handleLockKey(k) {
+  if (k === '⌫') {
+    pinBuffer = pinBuffer.slice(0, -1);
+  } else {
+    if (pinBuffer.length >= 4) return;
+    pinBuffer += k;
+  }
+  renderPinDots('pin-dots', pinBuffer.length);
+  document.getElementById('pin-error').textContent = '';
+  if (pinBuffer.length === 4) {
+    setTimeout(() => {
+      if (pinBuffer === storedPin) {
+        unlockApp();
+      } else {
+        document.getElementById('pin-error').textContent = 'Incorrect PIN';
+        pinBuffer = '';
+        renderPinDots('pin-dots', 0);
+        // Shake dots
+        const dots = document.getElementById('pin-dots');
+        dots.style.transform = 'translateX(-8px)';
+        setTimeout(() => { dots.style.transform = 'translateX(8px)'; }, 80);
+        setTimeout(() => { dots.style.transform = 'translateX(-5px)'; }, 160);
+        setTimeout(() => { dots.style.transform = 'translateX(0)'; }, 240);
+      }
+    }, 100);
+  }
+}
+
+function unlockApp() {
+  document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  renderCalendar();
+  renderCalEntries(selectedDate);
+}
+
+function lockApp() {
+  stopVoice();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('lock-screen').style.display = 'flex';
+  initLock();
+}
+
+// ─── PIN CHANGE MODAL ────────────────────────────────────
+function openPinModal() {
+  modalBuffer = ''; modalStep = 'first'; modalFirst = '';
+  document.getElementById('modal-hint').textContent = 'Enter your new 4-digit PIN';
+  document.getElementById('modal-error').textContent = '';
+  renderPinDots('modal-pin-dots', 0);
+  buildNumpad('modal-numpad', handleModalKey);
+  const m = document.getElementById('pin-modal');
+  m.style.display = 'flex';
+}
+
+function closePinModal() {
+  document.getElementById('pin-modal').style.display = 'none';
+}
+
+function handleModalKey(k) {
+  if (k === '⌫') {
+    modalBuffer = modalBuffer.slice(0, -1);
+  } else {
+    if (modalBuffer.length >= 4) return;
+    modalBuffer += k;
+  }
+  renderPinDots('modal-pin-dots', modalBuffer.length);
+  document.getElementById('modal-error').textContent = '';
+  if (modalBuffer.length === 4 && modalStep === 'first') {
+    modalFirst = modalBuffer;
+    modalBuffer = '';
+    modalStep = 'confirm';
+    renderPinDots('modal-pin-dots', 0);
+    document.getElementById('modal-hint').textContent = 'Confirm your new PIN';
+  }
+}
+
+function confirmNewPin() {
+  if (modalStep === 'first' || modalFirst.length < 4) {
+    document.getElementById('modal-error').textContent = 'Enter a 4-digit PIN above';
+    return;
+  }
+  if (modalBuffer.length < 4) {
+    document.getElementById('modal-error').textContent = 'Confirm your PIN above';
+    return;
+  }
+  if (modalBuffer !== modalFirst) {
+    document.getElementById('modal-error').textContent = "PINs don't match — try again";
+    modalBuffer = ''; modalFirst = ''; modalStep = 'first';
+    renderPinDots('modal-pin-dots', 0);
+    document.getElementById('modal-hint').textContent = 'Enter your new 4-digit PIN';
+    return;
+  }
+  storedPin = modalFirst;
+  persistPin(storedPin);
+  closePinModal();
+}
+
+// ─── TABS ─────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-cal').classList.toggle('active', tab === 'calendar');
+  document.getElementById('tab-all').classList.toggle('active', tab === 'all');
+  document.getElementById('view-calendar').style.display = tab === 'calendar' ? 'block' : 'none';
+  document.getElementById('view-all').style.display = tab === 'all' ? 'block' : 'none';
+  if (tab === 'all') renderAllEntries();
+}
+
+// ─── CALENDAR ─────────────────────────────────────────────
+function renderCalendar() {
+  const y = calMonth.getFullYear();
+  const m = calMonth.getMonth();
+  document.getElementById('cal-month-label').textContent = `${MONTHS[m]} ${y}`;
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+
+  const firstDow  = new Date(y, m, 1).getDay();
+  const daysInMon = new Date(y, m+1, 0).getDate();
+  const daysInPrev= new Date(y, m, 0).getDate();
+  const today     = todayKey();
+  const total     = Math.ceil((firstDow + daysInMon) / 7) * 7;
+
+  for (let i = 0; i < total; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+    let key;
+
+    if (i < firstDow) {
+      const d = daysInPrev - firstDow + i + 1;
+      cell.textContent = d;
+      cell.classList.add('other-month');
+      key = toDateKey(new Date(y, m-1, d));
+    } else if (i >= firstDow + daysInMon) {
+      const d = i - firstDow - daysInMon + 1;
+      cell.textContent = d;
+      cell.classList.add('other-month');
+      key = toDateKey(new Date(y, m+1, d));
+    } else {
+      const d = i - firstDow + 1;
+      cell.textContent = d;
+      key = toDateKey(new Date(y, m, d));
+    }
+
+    if (key === today)         cell.classList.add('today');
+    if (key === selectedDate)  cell.classList.add('selected');
+
+    const dayEntries = Object.values(entries).filter(e => e.date === key);
+    if (dayEntries.length) {
+      const dot = document.createElement('div');
+      dot.className = 'entry-dot';
+      cell.appendChild(dot);
+    }
+
+    const _key = key;
+    cell.addEventListener('click', () => selectCalDate(_key));
+    grid.appendChild(cell);
+  }
+}
+
+function shiftMonth(dir) {
+  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + dir, 1);
+  renderCalendar();
+}
+
+function selectCalDate(key) {
+  selectedDate = key;
+  renderCalendar();
+  renderCalEntries(key);
+  // Scroll to entries
+  document.getElementById('cal-entries').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderCalEntries(key) {
+  const wrap = document.getElementById('cal-entries');
+  if (!key) { wrap.innerHTML = '<div class="empty-state">Select a date to view entries</div>'; return; }
+
+  const dayEntries = Object.values(entries)
+    .filter(e => e.date === key)
+    .sort((a,b) => b.updatedAt - a.updatedAt);
+
+  wrap.innerHTML = `<div class="date-label">${formatFull(key)}</div>`;
+
+  if (!dayEntries.length) {
+    wrap.innerHTML += `<div class="empty-state" style="padding:20px 0 10px">No entries yet<br><button class="add-entry-btn" onclick="startNewEntryOn('${key}')">+ New Entry</button></div>`;
+    return;
+  }
+
+  dayEntries.forEach(e => {
+    const card = document.createElement('div');
+    card.className = 'entry-card';
+    card.innerHTML = `<div class="entry-time">${formatTime(e.updatedAt)}</div><div class="entry-title-preview">${e.title ? '<strong>'+escHtml(e.title)+'</strong>' + (e.body ? ' — ' + escHtml(e.body) : '') : escHtml(e.body) || '<em style="color:#c0b8a8">Empty entry</em>'}</div>`;
+    card.addEventListener('click', () => openEditor(e.id));
+    wrap.appendChild(card);
+  });
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-more-btn';
+  addBtn.textContent = '+ Add another entry';
+  addBtn.onclick = () => startNewEntryOn(key);
+  wrap.appendChild(addBtn);
+}
+
+// ─── ALL ENTRIES ──────────────────────────────────────────
+function renderAllEntries() {
+  const wrap = document.getElementById('all-entries');
+  wrap.innerHTML = '';
+  const sorted = Object.values(entries).sort((a,b) => b.updatedAt - a.updatedAt);
+  if (!sorted.length) {
+    wrap.innerHTML = '<div class="empty-state">No entries yet.<br>Tap ✎ to start writing.</div>';
+    return;
+  }
+  let lastDate = null;
+  sorted.forEach(e => {
+    if (e.date !== lastDate) {
+      const lbl = document.createElement('div');
+      lbl.className = 'date-label';
+      lbl.textContent = formatFull(e.date);
+      wrap.appendChild(lbl);
+      lastDate = e.date;
+    }
+    const card = document.createElement('div');
+    card.className = 'entry-card';
+    card.innerHTML = `<div class="entry-time">${formatTime(e.updatedAt)}</div><div class="entry-title-preview">${e.title ? '<strong>'+escHtml(e.title)+'</strong>' + (e.body ? ' — ' + escHtml(e.body) : '') : escHtml(e.body) || '<em style="color:#c0b8a8">Empty entry</em>'}</div>`;
+    card.addEventListener('click', () => openEditor(e.id));
+    wrap.appendChild(card);
+  });
+}
+
+// ─── EDITOR ───────────────────────────────────────────────
+function showEditor() {
+  document.getElementById('main-tabs').style.display = 'none';
+  document.getElementById('main-scroll').style.display = 'none';
+  document.getElementById('editor-view').style.display = 'flex';
+}
+
+function hideEditor() {
+  document.getElementById('editor-view').style.display = 'none';
+  document.getElementById('main-tabs').style.display = 'flex';
+  document.getElementById('main-scroll').style.display = 'block';
+}
+
+function startNewEntry() {
+  startNewEntryOn(todayKey());
+  if (currentTab === 'calendar') {
+    selectedDate = todayKey();
+    renderCalendar();
+  }
+}
+
+function startNewEntryOn(key) {
+  editingId = null;
+  document.getElementById('editor-date-label').textContent = formatFull(key).toUpperCase();
+  document.getElementById('editor-title').value = '';
+  document.getElementById('editor-body').value = '';
+  document.getElementById('editor-view').dataset.date = key;
+  document.getElementById('delete-btn').style.display = 'none';
+  showEditor();
+  setTimeout(() => document.getElementById('editor-body').focus(), 300);
+}
+
+function openEditor(id) {
+  const e = entries[id];
+  if (!e) return;
+  editingId = id;
+  document.getElementById('editor-date-label').textContent = formatFull(e.date).toUpperCase();
+  document.getElementById('editor-title').value = e.title || '';
+  document.getElementById('editor-body').value = e.body || '';
+  document.getElementById('editor-view').dataset.date = e.date;
+  document.getElementById('delete-btn').style.display = 'flex';
+  showEditor();
+}
+
+function closeEditor() {
+  stopVoice();
+  hideEditor();
+  if (currentTab === 'calendar') {
+    renderCalendar();
+    if (selectedDate) renderCalEntries(selectedDate);
+  } else {
+    renderAllEntries();
+  }
+}
+
+function saveCurrentEntry() {
+  const title = document.getElementById('editor-title').value.trim();
+  const body  = document.getElementById('editor-body').value.trim();
+  if (!title && !body) { closeEditor(); return; }
+
+  const key = document.getElementById('editor-view').dataset.date || todayKey();
+  const now = Date.now();
+
+  if (editingId && entries[editingId]) {
+    entries[editingId].title     = title;
+    entries[editingId].body      = body;
+    entries[editingId].updatedAt = now;
+  } else {
+    const id = 'e_' + now + '_' + Math.random().toString(36).slice(2,6);
+    entries[id] = { id, date: key, title, body, createdAt: now, updatedAt: now };
+    editingId = id;
+    document.getElementById('delete-btn').style.display = 'flex';
+  }
+  persistEntries();
+  closeEditor();
+}
+
+function deleteCurrentEntry() {
+  if (!editingId) return;
+  if (!confirm('Delete this entry? This cannot be undone.')) return;
+  delete entries[editingId];
+  editingId = null;
+  persistEntries();
+  closeEditor();
+}
+
+// ─── VOICE TO TEXT ────────────────────────────────────────
+function toggleVoice() {
+  recording ? stopVoice() : startVoice();
+}
+
+function startVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    alert('Voice input is not supported in this browser.\nTry Chrome on Android or Safari on iOS.');
+    return;
+  }
+
+  recognition = new SR();
+  recognition.continuous     = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-CA';
+
+  const ta = document.getElementById('editor-body');
+  const cursorStart = ta.selectionStart;
+  let committed = '';
+  let baseLength = ta.value.length;
+
+  recognition.onresult = (evt) => {
+    let interim = '';
+    let final   = '';
+    for (let i = evt.resultIndex; i < evt.results.length; i++) {
+      if (evt.results[i].isFinal) final += evt.results[i][0].transcript;
+      else interim += evt.results[i][0].transcript;
+    }
+    if (final) committed += final + ' ';
+    const before = ta.value.substring(0, cursorStart);
+    const after  = ta.value.substring(cursorStart + baseLength - ta.value.length + committed.length + interim.length - committed.length - interim.length);
+    ta.value = before + committed + interim;
+  };
+
+  recognition.onerror = () => stopVoice();
+  recognition.onend   = () => { if (recording) { try { recognition.start(); } catch(e){} } };
+
+  try {
+    recognition.start();
+    recording = true;
+    document.getElementById('voice-btn').classList.add('recording');
+    document.getElementById('voice-label').textContent = 'Stop';
+    document.getElementById('voice-icon').style.display = 'none';
+    document.getElementById('voice-wave').classList.add('on');
+  } catch(e) {
+    alert('Could not start voice input. Please allow microphone access.');
+  }
+}
+
+function stopVoice() {
+  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+  recording = false;
+  document.getElementById('voice-btn').classList.remove('recording');
+  document.getElementById('voice-label').textContent = 'Voice';
+  document.getElementById('voice-icon').style.display = '';
+  document.getElementById('voice-wave').classList.remove('on');
+}
+
+// ─── UTILS ────────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+loadAll();
+initLock();
+</script>
+</body>
+</html>
